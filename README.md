@@ -1,0 +1,1 @@
+# Hunting-Detection-KQL-Queries
