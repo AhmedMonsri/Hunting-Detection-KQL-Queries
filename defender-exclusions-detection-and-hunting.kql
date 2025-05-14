@@ -1,0 +1,25 @@
+// ===========================
+// High-fidelity Detection (for Alerting)
+// ===========================
+// Use this query for precise threat detection with low false positives.
+// Monitors official Defender antivirus exclusion registry keys only.
+
+DeviceRegistryEvents
+| where TimeGenerated > ago(1h)
+| where RegistryKey endswith "Exclusions\\Paths"
+   or RegistryKey endswith "Exclusions\\Processes"
+   or RegistryKey endswith "Exclusions\\Extensions"
+   or RegistryKey endswith "Exclusions\\TemporaryPaths"
+| where ActionType in ("RegistryValueSet", "RegistryKeyCreated", "RegistryKeyDeleted")
+| project TimeGenerated, DeviceName, RegistryKey, ActionType, RegistryValueName, PreviousRegistryValueData, RegistryValueData, InitiatingProcessFileName, InitiatingProcessCommandLine, ReportId
+
+// ===========================
+// Broad Threat Hunting (for Hunting/Exploration)
+// ===========================
+// Use this query for wider hunting—may include non-standard registry keys or subkeys and generate more results.
+// Good for incident response or environment discovery.
+
+DeviceRegistryEvents
+| where TimeGenerated > ago(1h)
+| where RegistryKey contains "\\Exclusions\\"
+| project TimeGenerated, DeviceName, RegistryKey, ActionType, RegistryValueName, RegistryValueData, InitiatingProcessFileName
