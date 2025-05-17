@@ -1,0 +1,8 @@
+//Teams_External_URL_PostDelivery_Analysis
+//This KQL query correlates `MessagePostDeliveryEvents`, `MessageEvents`, and `MessageUrlInfo` tables to identify messages:
+//Useful for threat hunting scenarios involving potential phishing or malicious links sent via Microsoft Teams from external users.
+MessagePostDeliveryEvents
+| join MessageEvents on TeamsMessageId
+| join MessageUrlInfo on TeamsMessageId
+| where IsExternalThread == true
+| project TimeGenerated, Action, ActionType, Url, SenderEmailAddress, ThreatTypes, ConfidenceLevel, DetectionMethods, ThreadType, ThreadId
