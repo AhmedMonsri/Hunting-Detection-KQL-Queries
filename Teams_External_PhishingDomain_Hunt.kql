@@ -1,0 +1,14 @@
+//Import phishing domain list (one domain per line)
+let PhishingDomains = externaldata(Domain:string)
+['https://raw.githubusercontent.com/Phishing-Database/Phishing.Database/refs/heads/master/phishing-domains-NEW-today.txt']
+with(format='txt')
+| where isnotempty(Domain)
+| distinct Domain;
+//Find Teams messages containing those domains, sent by EXTERNAL users
+MessagePostDeliveryEvents
+| join MessageEvents on TeamsMessageId
+| join MessageUrlInfo on TeamsMessageId
+| where Timestamp > ago(1d)
+| where UrlDomain in (PhishingDomains)
+| where IsExternalThread == "1"
+| project Timestamp, SenderEmailAddress, RecipientDetails, Url, MessageId, Action
