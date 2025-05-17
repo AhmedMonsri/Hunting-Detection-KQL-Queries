@@ -5,4 +5,4 @@ MessagePostDeliveryEvents
 | join MessageEvents on TeamsMessageId
 | join MessageUrlInfo on TeamsMessageId
 | where IsExternalThread == true
-| project TimeGenerated, Action, ActionType, Url, SenderEmailAddress, ThreatTypes, ConfidenceLevel, DetectionMethods, ThreadType, ThreadId
+| project TimeGenerated, Timestamp, SenderObjectId, Action, TeamsMessageId, ActionType, Url, SenderEmailAddress, ThreatTypes, ConfidenceLevel, DetectionMethods, ThreadType, ThreadId, ReportId
