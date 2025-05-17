@@ -11,4 +11,4 @@ MessagePostDeliveryEvents
 | where Timestamp > ago(1d)
 | where UrlDomain in (PhishingDomains)
 | where IsExternalThread == "1"
-| project Timestamp, SenderEmailAddress, RecipientDetails, Url, MessageId, Action
+| project Timestamp, SenderEmailAddress, SenderObjectId, RecipientDetails, Url, MessageId, Action, ReportId
