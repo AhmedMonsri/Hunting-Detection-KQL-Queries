@@ -1,0 +1,44 @@
+// Choose Files to allow
+let dev_folders = dynamic([
+    @"Path1",
+    @"path2",  
+]);
+// Choose processes to allow
+let dev_processes = dynamic([
+    "P1.exe",
+    "P2.exe",
+]);
+// --- Detect .pif file creation in user space (but not from known dev tools/paths)
+let PifFileCreation = DeviceFileEvents
+| where FileName endswith ".pif"
+| where FolderPath contains @"\Users\"
+| where not(FolderPath has_any(dev_folders))
+| where not(InitiatingProcessFileName has_any(dev_processes))
+| project Timestamp, DeviceName, AccountName=InitiatingProcessAccountName, FileAction="Created", FileName, FolderPath, InitiatingProcessFileName, InitiatingProcessCommandLine, ReportId, Reason="Suspicious PIF file creation outside dev patterns";
+// --- Detect execution of .pif files in user folders (always alert)
+let PifExecution = DeviceProcessEvents
+| where FileName endswith ".pif"
+| where FolderPath contains @"\Users\"
+| project Timestamp, DeviceName, AccountName=InitiatingProcessAccountName, FileAction="Executed", FileName, FolderPath, InitiatingProcessFileName, InitiatingProcessCommandLine, ReportId, Reason="PIF file executed";
+// --- Detect .pif execution with suspicious follow-up process
+let SuspiciousChildProc = DeviceProcessEvents
+| where InitiatingProcessFileName endswith ".pif"
+| where FileName in~ ("cmd.exe", "powershell.exe", "wscript.exe", "mshta.exe", "regsvr32.exe", "rundll32.exe", "cscript.exe", "schtasks.exe")
+| project Timestamp, DeviceName, AccountName=InitiatingProcessAccountName, FileAction="PIF spawned child proc", FileName, FolderPath, InitiatingProcessFileName, InitiatingProcessCommandLine, ReportId, Reason="PIF file spawned suspicious process";
+// --- Detect persistence attempt from PIF process
+let PifPersistence = DeviceRegistryEvents
+| where InitiatingProcessFileName endswith ".pif"
+| where ActionType == "RegistryValueSet"
+| where RegistryKey contains @"\Run" or RegistryKey contains @"\RunOnce"
+| project Timestamp, DeviceName, AccountName=InitiatingProcessAccountName, FileAction="Persistence Attempt", RegistryKey, RegistryValueName, RegistryValueData, InitiatingProcessFileName, InitiatingProcessCommandLine, ReportId, Reason="PIF file attempted persistence";
+// --- Collect & present results
+union PifFileCreation, PifExecution, SuspiciousChildProc, PifPersistence
+| order by Timestamp desc
+| extend
+    Severity=case(FileAction == "PIF spawned child proc" or FileAction == "Persistence Attempt", "High",
+                  FileAction == "Executed", "Medium",
+                  FileAction == "Created", "Low",
+                  "Informational"),
+    Techniques=dynamic(["T1204", "T1547.001"]),
+    Tactics=dynamic(["Execution", "Persistence"]),
+    Description="Detection of suspicious PIF (.pif) file creation, execution, follow-up process, or persistence in user environments. Alerts are tuned to suppress standard dev/test artifacts."
