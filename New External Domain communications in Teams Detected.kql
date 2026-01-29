@@ -1,0 +1,18 @@
+let Lookback = 90d; // max interactive window in Advanced Hunting
+let RecentWindow = 1h; // tune: 1h, 6h, 1d, etc.
+let HistoricalDomains =
+MessageEvents
+| where Timestamp between (ago(Lookback) .. ago(RecentWindow))
+| where IsExternalThread == true
+| extend SenderDomain = tolower(extract(@"@([^@]+)$", 1, SenderEmailAddress))
+| where isnotempty(SenderDomain)
+| summarize by SenderDomain;
+MessageEvents
+| where Timestamp > ago(RecentWindow)
+| where IsExternalThread == true
+| extend SenderDomain = tolower(extract(@"@([^@]+)$", 1, SenderEmailAddress))
+| where isnotempty(SenderDomain)
+| where SenderDomain !in (HistoricalDomains)
+| project Timestamp, SenderEmailAddress, SenderDomain, SenderDisplayName, RecipientDetails,
+GroupName, ThreadId, TeamsMessageId, ThreatTypes, ReportId
+| order by Timestamp desc
