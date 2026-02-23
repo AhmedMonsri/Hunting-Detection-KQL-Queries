@@ -1,0 +1,11 @@
+//Description: Compares total SecurityAlert counts in the last 7 days against the prior 7-day period, 
+//calculating the absolute change and percentage delta to highlight increases or decreases in alert volume.
+let w = 7d;
+SecurityAlert
+| summarize
+    Alerts_Last7d = countif(TimeGenerated >= ago(w)),
+    Alerts_Prev7d = countif(TimeGenerated between (ago(2*w) .. ago(w)))
+| extend
+    Alerts_Delta = Alerts_Last7d - Alerts_Prev7d,
+    Alerts_Delta_pct = round(100.0 * todouble(Alerts_Last7d - Alerts_Prev7d) / iff(Alerts_Prev7d == 0, real(null), todouble(Alerts_Prev7d)), 2)
+| project Alerts_Last7d, Alerts_Prev7d, Alerts_Delta, Alerts_Delta_pct
