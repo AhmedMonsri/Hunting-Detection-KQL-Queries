@@ -1,0 +1,28 @@
+//Description: Correlates SecurityAlert records to the latest incident classification via SecurityIncident mapping, 
+//then summarizes the top 10 alert names by volume over the last 30 days, including counts of True Positives, False/Benign Positives, unclassified alerts, and TP/FP rates based on classified outcomes.
+let lookback = 30d;
+// Map AlertId -> latest Incident Classification (per incident), so we can compute TP/FP based on incident outcome
+let AlertIdToClassification =
+SecurityIncident
+| where TimeGenerated >= ago(lookback)
+| summarize arg_max(TimeGenerated, *) by IncidentNumber
+| mv-expand AlertId = AlertIds
+| extend AlertId = tostring(AlertId)
+| summarize Classification = any(Classification) by AlertId;
+SecurityAlert
+| where TimeGenerated >= ago(lookback)
+| extend AlertId = tostring(SystemAlertId)
+| join kind=leftouter AlertIdToClassification on AlertId
+| extend Class = coalesce(Classification, "Unclassified")
+| summarize
+    AlertCount = count(),
+    TPCount = countif(Class == "TruePositive"),
+    FPCount = countif(Class in ("FalsePositive", "BenignPositive")),
+    UnclassifiedCount = countif(Class == "Unclassified"),
+    ClassifiedCount = countif(Class in ("TruePositive","FalsePositive","BenignPositive"))
+  by AlertName
+| extend
+    TP_Rate_pct = round(100.0 * todouble(TPCount) / iff(ClassifiedCount == 0, double(null), todouble(ClassifiedCount)), 2),
+    FP_Rate_pct = round(100.0 * todouble(FPCount) / iff(ClassifiedCount == 0, double(null), todouble(ClassifiedCount)), 2)
+| order by AlertCount desc
+| take 10
