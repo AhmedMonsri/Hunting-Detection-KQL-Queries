@@ -1,0 +1,34 @@
+//Description: For a chosen AlertName prefix, expands the alert Entities field and extracts normalized entity values (IP, account, host, file, process, URL, domain).
+//Summarizes the most frequent entities over the last 30 days with hit count, distinct alert instances, and first/last seen times to identify recurring targets or sources.
+let lookback = 30d;
+let AlertToAnalyze = "Administrative activi";
+SecurityAlert
+| where TimeGenerated >= ago(lookback)
+| where AlertName startswith AlertToAnalyze
+| extend EntitiesRaw = todynamic(tostring(Entities))
+| extend EntitiesArr = case(
+    isnull(EntitiesRaw), dynamic([]),
+    isnull(array_length(EntitiesRaw)), pack_array(EntitiesRaw),  // if it's an object not an array
+    EntitiesRaw
+)
+| mv-expand Ent = EntitiesArr
+| extend EntityType = tostring(Ent.Type)
+| extend EntityValue = case(
+    EntityType =~ "ip", tostring(Ent.Address),
+    EntityType =~ "account", strcat(tostring(Ent.Name), iif(isnotempty(tostring(Ent.UPNSuffix)), strcat("@", tostring(Ent.UPNSuffix)), "")),
+    EntityType =~ "host", coalesce(tostring(Ent.FQDN), tostring(Ent.HostName), tostring(Ent.NetBiosName), tostring(Ent.DnsDomain)),
+    EntityType =~ "file", coalesce(tostring(Ent.Name), tostring(Ent.SHA256), tostring(Ent.MD5)),
+    EntityType =~ "process", coalesce(tostring(Ent.CommandLine), tostring(Ent.ProcessId)),
+    EntityType =~ "url", tostring(Ent.Url),
+    EntityType =~ "domain", coalesce(tostring(Ent.DomainName), tostring(Ent.DnsDomain)),
+    tostring(Ent)
+)
+| where isnotempty(EntityValue)
+| summarize
+    Hits=count(),
+    AlertInstances=dcount(SystemAlertId),
+    FirstSeen=min(TimeGenerated),
+    LastSeen=max(TimeGenerated)
+  by EntityType, EntityValue
+| order by Hits desc
+| take 50
