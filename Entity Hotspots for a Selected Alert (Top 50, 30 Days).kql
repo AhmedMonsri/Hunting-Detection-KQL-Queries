@@ -1,7 +1,8 @@
 //Description: For a chosen AlertName prefix, expands the alert Entities field and extracts normalized entity values (IP, account, host, file, process, URL, domain).
 //Summarizes the most frequent entities over the last 30 days with hit count, distinct alert instances, and first/last seen times to identify recurring targets or sources.
 let lookback = 30d;
-let AlertToAnalyze = "Administrative activi";
+//change this with the alert name
+let AlertToAnalyze = "selected alert";
 SecurityAlert
 | where TimeGenerated >= ago(lookback)
 | where AlertName startswith AlertToAnalyze
